@@ -24,7 +24,7 @@ export default function ChatbotPage() {
     // Add welcome message
     setMessages([{
       id: Date.now(),
-      text: "Hello! I'm your AI assistant. How can I help you today?",
+      text: "Hello! I'm your Weather assistant. How can I help you today?",
       sender: 'bot',
       timestamp: new Date().toISOString()
     }]);
