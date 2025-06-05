@@ -11,8 +11,15 @@ export default function ChatbotPage() {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    // Generate a session ID when component mounts
-    setSessionId(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+    // Generate a session ID based on device IP
+    getDeviceIP().then(ip => {
+      const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substr(2, 4);
+      setSessionId(`${ip}_${timestamp}_${randomSuffix}`);
+    }).catch(() => {
+      // Fallback to previous method if IP detection fails
+      setSessionId(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+    });
     
     // Add welcome message
     setMessages([{
@@ -22,6 +29,53 @@ export default function ChatbotPage() {
       timestamp: new Date().toISOString()
     }]);
   }, []);
+
+  const getDeviceIP = async () => {
+    try {
+      // Try to get local IP first
+      const localIP = await getLocalIP();
+      if (localIP && localIP !== '127.0.0.1') {
+        return localIP;
+      }
+      
+      // Fallback to public IP
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      return data.ip;
+    } catch (error) {
+      console.warn('Could not determine IP address:', error);
+      throw error;
+    }
+  };
+
+  const getLocalIP = () => {
+    return new Promise((resolve) => {
+      // Create a dummy peer connection to get local IP
+      const rtc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+      
+      rtc.createDataChannel('');
+      rtc.createOffer().then(offer => rtc.setLocalDescription(offer));
+      
+      rtc.onicecandidate = (event) => {
+        if (event.candidate) {
+          const candidate = event.candidate.candidate;
+          const ipMatch = candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+          if (ipMatch) {
+            rtc.close();
+            resolve(ipMatch[1]);
+          }
+        }
+      };
+      
+      // Timeout after 3 seconds
+      setTimeout(() => {
+        rtc.close();
+        resolve(null);
+      }, 3000);
+    });
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -124,7 +178,7 @@ export default function ChatbotPage() {
               </div>
             </div>
             <div className="text-sm opacity-75">
-              Session: {sessionId.slice(-8)}
+              IP: {sessionId.split('_')[0] || 'Loading...'}
             </div>
           </div>
         </div>
